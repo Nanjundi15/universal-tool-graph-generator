@@ -1,56 +1,372 @@
-# build a tool dependency graph generator (60-120 mins)
+# ⚡ Universal Tool Graph Generator
 
-we care about the quality and structure of the dependency relationships you discover
+<div align="center">
 
-some actions need precursor actions before being able to execute them
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=24&duration=3000&pause=1000&color=38BDF8&center=true&vCenter=true&width=800&lines=Discover+Tool+Dependencies.;Build+Intelligent+Action+Workflows.;Power+the+Next+Generation+of+AI+Agents." alt="Typing SVG" />
 
-a concrete example
+**A generic dependency graph engine that transforms toolkit catalogs into structured, interactive producer-consumer relationships.**
 
-1. the tool `GITHUB_CREATE_AN_ISSUE_COMMENT` which needs an `issue_number`
-2. which can be got by `GITHUB_LIST_REPOSITORY_ISSUES` as an example, there could be other ways to get an `issue_number` too
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Graph](https://img.shields.io/badge/Dependency-Graph-8B5CF6?style=for-the-badge&logo=neo4j&logoColor=white)](#)
+[![AI Agents](https://img.shields.io/badge/AI-Agent_Workflows-06B6D4?style=for-the-badge)](#)
 
-a second more dense exmaple
-the merge tool `GITHUB_MERGE_A_PULL_REQUEST` needs a `pull_number`, if you only have a branch name you first list the pull requests with `GITHUB_LIST_PULL_REQUESTS` to find the matching one and then you can merge it
+[Overview](#-overview) · [Architecture](#-how-it-works) · [Installation](#-installation) · [Usage](#-usage) · [Visualization](#-interactive-visualization)
 
-when we agentically execute actions inside composio, we need to know either what info to get from the user or what other action we should take before we execute the action.
+</div>
 
-you are supposed to build a program that generates this dependency graph — a generator that reads a toolkit's tool catalog and outputs the graph, instead of hand-writing it
+---
 
-to keep this limited in scope, we give you [Github](https://docs.composio.dev/toolkits/github) as an example toolkit to build and test against — but your generator should generalize: it reads a toolkit's catalog and produces the graph, so it works for any toolkit, not just this one
+## 🚀 Overview
 
-the final submission should be a visualized dependency graph where i can see connection (this is not super important just should exist for me to see if graph with edges and nodes)
+AI agents need more than a collection of tools. They need to understand **which actions must happen before other actions can execute**.
 
-## deliverable
+The Universal Tool Graph Generator solves this problem by analyzing toolkit catalogs and automatically discovering dependencies between tools.
 
-commit a **generator** at the repo root — a program that produces a `dependency_graph.json` from a toolkit's catalog. we run it: your generator is called with the path to a toolkit's catalog as a command-line argument (e.g. `node src/generate.ts path/to/catalog.json`), and it writes `dependency_graph.json` at the repo root (declare build/run in `generator.json`). it must read the catalog it's given, not hardcode a fixed graph. the graph shape our checks read:
+It identifies:
+
+- What information a tool requires.
+- Which other tools can produce that information.
+- How one action can enable another action.
+- Which dependencies should be represented as directed graph edges.
+
+Instead of manually defining relationships, the generator reads a toolkit catalog and produces a structured dependency graph.
+
+### ✨ Project Results
+
+| Metric | Generated result |
+|---|---:|
+| Tools analyzed | 893 |
+| Dependency relationships | 3,941 |
+| Provenance ratio | 100% |
+| Labeled edges | 3,941 |
+| Example toolkit | GitHub |
+
+*Results from the GitHub catalog used during development.*
+
+---
+
+## 🧠 Why This Project?
+
+Imagine an AI agent needs to create a comment on a GitHub issue.
+
+It needs an `issue_number`, but the user might not provide one directly.
+
+The agent can first execute:
+
+`GITHUB_LIST_REPOSITORY_ISSUES`
+
+Then use the returned issue number to execute:
+
+`GITHUB_CREATE_AN_ISSUE_COMMENT`
+
+The generator discovers this relationship automatically.
+
+### Example 1: Issue dependency
+
+```mermaid
+flowchart TD
+    A["GITHUB_LIST_REPOSITORY_ISSUES"]
+    B["issue_number"]
+    C["GITHUB_CREATE_AN_ISSUE_COMMENT"]
+
+    A --> B
+    B --> C
+
+    style A fill:#172554,stroke:#3B82F6,color:#FFFFFF
+    style B fill:#065F46,stroke:#10B981,color:#FFFFFF
+    style C fill:#312E81,stroke:#8B5CF6,color:#FFFFFF
+```
+
+### Example 2: Pull request dependency
+
+An agent has a branch name but needs a `pull_number` to merge a pull request.
+
+```mermaid
+flowchart TD
+    A["Branch name"]
+    B["GITHUB_LIST_PULL_REQUESTS"]
+    C["pull_number"]
+    D["GITHUB_MERGE_A_PULL_REQUEST"]
+
+    A --> B
+    B --> C
+    C --> D
+
+    style A fill:#334155,stroke:#64748B,color:#FFFFFF
+    style B fill:#172554,stroke:#3B82F6,color:#FFFFFF
+    style C fill:#065F46,stroke:#10B981,color:#FFFFFF
+    style D fill:#312E81,stroke:#8B5CF6,color:#FFFFFF
+```
+
+---
+
+## ⚙️ How It Works
+
+The generator follows a simple pipeline:
+
+```mermaid
+flowchart TD
+    A["Toolkit Catalog<br/>JSON"] --> B["Schema Parser"]
+    B --> C["Extract Tool Inputs"]
+    B --> D["Extract Tool Outputs"]
+    C --> E["Semantic Field Matching"]
+    D --> E
+    E --> F["Dependency Graph Generator"]
+    F --> G["dependency_graph.json"]
+    F --> H["Interactive Visualization"]
+
+    style A fill:#172554,stroke:#3B82F6,color:#FFFFFF
+    style B fill:#1E293B,stroke:#64748B,color:#FFFFFF
+    style C fill:#1E293B,stroke:#64748B,color:#FFFFFF
+    style D fill:#1E293B,stroke:#64748B,color:#FFFFFF
+    style E fill:#312E81,stroke:#8B5CF6,color:#FFFFFF
+    style F fill:#312E81,stroke:#8B5CF6,color:#FFFFFF
+    style G fill:#065F46,stroke:#10B981,color:#FFFFFF
+    style H fill:#065F46,stroke:#10B981,color:#FFFFFF
+```
+
+### Dependency discovery process
+
+1. **Catalog ingestion** — Read the supplied toolkit catalog from a command-line argument.
+2. **Schema analysis** — Inspect tool input and output parameters.
+3. **Nested schema traversal** — Follow references and nested objects to discover available fields.
+4. **Semantic matching** — Normalize field names and identify compatible resource identifiers.
+5. **Graph construction** — Create directed producer-to-consumer edges.
+6. **Output generation** — Write the dependency graph as JSON and generate an HTML visualization.
+
+---
+
+## 🕸️ Graph Structure
+
+The generated graph uses two primary components.
+
+### Nodes
+
+Each tool is represented by its Composio tool slug.
 
 ```json
 {
-  "nodes": [{ "id": "GITHUB_CREATE_AN_ISSUE", "service": "issues" }],
-  "edges": [{ "from": "GITHUB_LIST_REPOSITORY_ISSUES", "to": "GITHUB_CREATE_AN_ISSUE_COMMENT", "label": "issue_number" }]
+  "id": "GITHUB_CREATE_AN_ISSUE_COMMENT",
+  "service": "issues"
 }
 ```
 
-- each edge is `producer -> consumer`; `label` is the id/field the producer supplies (e.g. `issue_number`, `pull_number`).
-- use Composio's tool slugs for node ids (e.g. `GITHUB_CREATE_AN_ISSUE`), taken from the catalog you were given.
-- also commit a visualization (nodes + edges you can see) and the tool catalog you use.
+### Edges
 
-## get started
+Each edge represents a dependency between a producer and consumer.
 
-1. the GitHub tool catalog is already provided at `github_catalog.json` — no api key needed.
-2. write your generator in `src/generate.ts` to read a toolkit's catalog and produce the graph. run `npm run selfcheck` to try it on `github_catalog.json` as you iterate.
-3. use node/tsx or python (`bun` isn't guaranteed when we run your generator).
+```json
+{
+  "from": "GITHUB_LIST_REPOSITORY_ISSUES",
+  "to": "GITHUB_CREATE_AN_ISSUE_COMMENT",
+  "label": "issue_number"
+}
+```
 
-for language models, use the **AI API credentials** (a Base URL and API key) shown on your Litmus assessment page. they work with the OpenAI SDK: point the client's `baseURL`/`base_url` at that url and pass the key, and call an allowed model such as `openai/gpt-4o`. your usage counts against the assessment's token budget.
+### Output format
 
-you can implement this with whatever language you want, feel free to use language models and coding tools
+```json
+{
+  "nodes": [
+    {
+      "id": "GITHUB_LIST_REPOSITORY_ISSUES",
+      "service": "issues"
+    },
+    {
+      "id": "GITHUB_CREATE_AN_ISSUE_COMMENT",
+      "service": "issues"
+    }
+  ],
+  "edges": [
+    {
+      "from": "GITHUB_LIST_REPOSITORY_ISSUES",
+      "to": "GITHUB_CREATE_AN_ISSUE_COMMENT",
+      "label": "issue_number"
+    }
+  ]
+}
+```
 
-## submit
+---
 
-once you are done, run `litmus submit` from your assessment folder. make sure your generator (see **deliverable** above) is committed.
+## 🖥️ Interactive Visualization
 
-## activity tracking
+The project generates an HTML-based graph visualization.
 
-your work is tracked automatically while you work (file changes, git history, and AI-tool prompts) and included when you `litmus submit`. there is nothing to run, just commit often.
+It allows you to explore tool relationships and inspect connected dependencies without rendering thousands of relationships in one oversized diagram.
 
-NOTE:  Feel free to use LLM, you will be judged by the quality of output, eval...
+**Visualization capabilities:**
+
+- Interactive graph exploration.
+- Search tools by slug.
+- Inspect direct dependencies.
+- Explore connected producer and consumer tools.
+- Zoom and navigate the graph.
+
+### Preview
+
+Open `visualization.html` in your browser after generating the graph.
+
+> The visualization is generated locally from the toolkit catalog. The HTML viewer uses the vis-network library.
+
+---
+
+## 🛠️ Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| TypeScript | Core generator implementation |
+| Node.js | Runtime environment |
+| JSON Schema | Tool input/output analysis |
+| Composio Catalog | Toolkit metadata |
+| vis-network | Interactive graph visualization |
+| Mermaid | Documentation diagrams |
+| npm | Dependency and script management |
+
+---
+
+## 📦 Installation
+
+### Prerequisites
+
+- Node.js
+- npm
+- Git
+
+### Clone the repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/universal-tool-graph-generator.git
+
+cd universal-tool-graph-generator
+```
+
+### Install dependencies
+
+```bash
+npm install --legacy-peer-deps
+```
+
+---
+
+## ▶️ Usage
+
+### Generate a dependency graph
+
+Pass the toolkit catalog path as a command-line argument.
+
+```bash
+node --import tsx src/generate.ts path/to/catalog.json
+```
+
+Or use the npm script:
+
+```bash
+npm run generate -- path/to/catalog.json
+```
+
+### Example with GitHub
+
+```bash
+npm run generate -- github_catalog.json
+```
+
+### Generated files
+
+```text
+dependency_graph.json
+visualization.html
+```
+
+### Run the self-check
+
+```bash
+npm run selfcheck
+```
+
+The self-check validates the generated graph structure and reports:
+
+- Number of generated nodes.
+- Number of dependency edges.
+- Provenance ratio.
+- Number of labeled edges.
+
+---
+
+## 📁 Project Structure
+
+```text
+universal-tool-graph-generator/
+│
+├── src/
+│   ├── generate.ts
+│   └── selfcheck.ts
+│
+├── github_catalog.json
+├── dependency_graph.json
+├── visualization.html
+│
+├── generator.json
+├── package.json
+├── package-lock.json
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 🎯 Design Goals
+
+- **Toolkit agnostic:** Read different toolkit catalogs instead of relying on a hardcoded graph.
+- **Schema driven:** Discover relationships from tool input and output schemas.
+- **Semantic matching:** Match resource identifiers across producer and consumer actions.
+- **Directed relationships:** Preserve producer-to-consumer dependency direction.
+- **Traceable output:** Retain tool slugs and field labels in generated relationships.
+- **Visual exploration:** Make complex tool dependencies easier to understand.
+
+---
+
+## 🔮 Future Improvements
+
+- More advanced semantic matching using descriptions and parameter types.
+- Confidence scores for discovered dependencies.
+- Better disambiguation of identifiers shared by different resource types.
+- Support for additional toolkit catalog formats.
+- Dependency path exploration and workflow recommendations.
+- AI-assisted dependency discovery.
+- Graph filtering by service, resource type, and relationship.
+
+---
+
+## 🤝 Contributing
+
+Contributions, suggestions, and improvements are welcome.
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Implement your changes.
+4. Run the self-check.
+5. Submit a pull request.
+
+---
+
+## 👨‍💻 Author
+
+**Nanjundeshwara K**
+
+Electronics & Communication Engineering | AI Engineer | Full Stack Developer | AI Agent Systems
+
+GitHub: [@Nanjundi15](https://github.com/Nanjundi15)
+
+---
+
+<div align="center">
+
+### ⚡ Turning tool catalogs into intelligent action graphs.
+
+**Built for developers building the next generation of AI agents.**
+
+⭐ If you find this project useful, consider giving it a star!
+
+</div>
