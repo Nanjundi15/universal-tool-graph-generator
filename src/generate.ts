@@ -273,59 +273,126 @@ function generate(tools: Tool[]): Graph {
 }
 
 // Create a browser-based visualization.
+
 function createVisualization(graph: Graph): string {
-  const mermaid = [
-    "flowchart LR",
-
-    ...graph.nodes.map(
-      (node, i) => `N${i}["${node.id}"]`
-    ),
-
-    ...graph.edges.map((edge) => {
-      const from = graph.nodes.findIndex(
-        (node) => node.id === edge.from
-      );
-
-      const to = graph.nodes.findIndex(
-        (node) => node.id === edge.to
-      );
-
-      return `N${from} -->|"${edge.label}"| N${to}`;
-    })
-  ].join("\n");
+  const graphData = JSON.stringify(graph);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tool Dependency Graph</title>
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Composio Tool Dependency Graph</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  margin: 30px;
-  background: #f8fafc;
-}
-h1 { color: #172554; }
-#graph {
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  overflow: auto;
-}
+body { margin:0; font-family:Arial,sans-serif; background:#101827; color:#f8fafc; }
+header { padding:20px; background:#172337; }
+h2 { margin:0 0 8px; }
+.controls { display:flex; gap:10px; padding:15px; flex-wrap:wrap; }
+input { padding:12px; width:320px; max-width:80%; border-radius:6px; border:0; }
+button { padding:11px 16px; border:0; border-radius:6px; cursor:pointer; }
+#network { height:75vh; background:#fff; margin:0 15px 15px; border-radius:8px; }
+#status { padding:0 15px 12px; color:#cbd5e1; }
 </style>
 </head>
 <body>
-<h1>Composio Tool Dependency Graph</h1>
-<p>${graph.nodes.length} tools · ${graph.edges.length} dependencies</p>
-<div id="graph">
-<pre class="mermaid">
-${mermaid}
-</pre>
+<header>
+<h2>Composio Tool Dependency Graph</h2>
+<div id="stats"></div>
+</header>
+<div class="controls">
+<input id="search" placeholder="Search tool slug..." />
+<button onclick="showAll()">Show overview</button>
+<button onclick="resetGraph()">Reset</button>
 </div>
+<div id="status">Search for a tool or select a node to explore its dependencies.</div>
+<div id="network"></div>
+
 <script>
-mermaid.initialize({startOnLoad:true,theme:"neutral"});
+const graph = ${graphData};
+const allNodes = new vis.DataSet(
+  graph.nodes.map(n => ({
+    id:n.id,
+    label:n.id,
+    title:n.id,
+    color:{background:'#dbeafe',border:'#2563eb'}
+  }))
+);
+const allEdges = new vis.DataSet(
+  graph.edges.map((e,i) => ({
+    id:i,
+    from:e.from,
+    to:e.to,
+    label:e.label,
+    arrows:'to',
+    color:{color:'#94a3b8'},
+    font:{size:10,align:'middle'}
+  }))
+);
+const container = document.getElementById('network');
+const data = {nodes:new vis.DataSet([]),edges:new vis.DataSet([])};
+const options = {
+  physics:{stabilization:{iterations:150}},
+  interaction:{hover:true,navigationButtons:true,keyboard:true},
+  nodes:{shape:'box',margin:10,font:{size:12}},
+  edges:{smooth:{type:'dynamic'}}
+};
+const network = new vis.Network(container,data,options);
+
+document.getElementById('stats').textContent =
+  graph.nodes.length + ' tools · ' + graph.edges.length + ' dependencies';
+
+function showNode(id) {
+  const connected = graph.edges.filter(e => e.from === id || e.to === id);
+  const ids = new Set([id]);
+  connected.forEach(e => { ids.add(e.from); ids.add(e.to); });
+
+  data.nodes.clear();
+  data.edges.clear();
+  data.nodes.add([...ids].map(nodeId => ({
+    id:nodeId,
+    label:nodeId,
+    color:nodeId===id
+      ? {background:'#bbf7d0',border:'#16a34a'}
+      : {background:'#dbeafe',border:'#2563eb'}
+  })));
+  data.edges.add(connected.map((e,i) => ({
+    id:i,from:e.from,to:e.to,label:e.label,
+    arrows:'to',font:{size:11,align:'middle'}
+  })));
+
+  document.getElementById('status').textContent =
+    id + ' · ' + connected.length + ' direct dependencies';
+  network.fit();
+}
+
+function showAll() {
+  data.nodes.clear();
+  data.edges.clear();
+  data.nodes.add(allNodes.get());
+  data.edges.add(allEdges.get());
+  document.getElementById('status').textContent =
+    'Full graph overview · select a node to inspect its connections.';
+  network.fit();
+}
+
+function resetGraph() {
+  document.getElementById('search').value='';
+  showAll();
+}
+
+network.on('click', params => {
+  if(params.nodes.length) showNode(params.nodes[0]);
+});
+
+document.getElementById('search').addEventListener('input', event => {
+  const query=event.target.value.toLowerCase().trim();
+  if(!query) { showAll(); return; }
+  const match=graph.nodes.find(n=>n.id.toLowerCase().includes(query));
+  if(match) showNode(match.id);
+});
+
+showAll();
 </script>
 </body>
 </html>`;
